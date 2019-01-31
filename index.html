@@ -74,7 +74,7 @@
       					
 	      				<div class="btnBox">
 	      					<button class="btn btn-primary btn-sm" id="startWA">Connect Whatsapp</button>
-	      					<button class="btn btn-primary btn-sm" id="scanQR">Refresh QR</button>
+	      					<button class="btn btn-primary btn-sm" id="scanQR" disabled>Refresh QR</button>
 	      				</div>
       				</div>
       				<div class="tableBox table table  table-striped" style="width: 100%;margin-left: 20px;">
@@ -187,6 +187,7 @@
 			$(".progress-bar").removeClass('bg-success bg-danger').addClass('bg-primary');
 			$(".progress").css('visibility','');
 			$("#startWA").text("Please wait...")
+			$("#startWA").prop('disabled',true)
 			$.ajax({
 				url : 'http://localhost:5000/start',
 				async : true,
@@ -196,7 +197,8 @@
 						$.notify(jqXHR.responseJSON.msg,'success')
 						$("._2EZ_m h5").text('Getting qr..');
 						getQrCode();
-						$("#startWA").text("Started...")
+						$("#startWA").text("Please scan...")
+						$("#scanQR").prop('disabled',false);
 						$(".progress-bar").toggleClass('bg-primary bg-success');
 						setTimeout(function(){
 							$(".progress").css('visibility','hidden');
@@ -208,6 +210,7 @@
 						$("._2EZ_m h5").text('Connection failed...');
 						$("#startWA").text("Error")
 						setTimeout(function(){
+							$("#startWA").prop('disabled',false)
 							$("#startWA").text("Try again")
 						},2000)
 					}

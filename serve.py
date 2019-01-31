@@ -113,6 +113,13 @@ def scanQR():
 	# return qr_base64
 	return jsonify({'msg': '', 'data' : qr_base64}), 200
 		
+@app.route('/isLoggedIn')
+def isLoggedIn():
+	try:
+		driver.find_element_by_css_selector(".RLfQR")
+		return 'true'
+	except Exception as e:
+		return 'false'
 
 
 @app.route("/")
