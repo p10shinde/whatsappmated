@@ -33,7 +33,7 @@
 	</nav>
   	<div class="container-fluid" style="height:100%">
   		<div class="row" style="padding-top: 60px;">
-    		<nav class="col-md-2 col-12" style="border-right: 1px solid #c3c3c3;">
+    		<nav class="col-md-2 col-12" style="border-right: 1px solid #c3c3c3;border-radius: 5px;">
       			<div class="sidebar-sticky">
       				<ul class="nav flex-column">
 			          	<li class="nav-item">
@@ -75,10 +75,12 @@
 	      				<div class="btnBox">
 	      					<button class="btn btn-primary btn-sm" id="startWA">Connect Whatsapp</button>
 	      					<button class="btn btn-primary btn-sm" id="scanQR" disabled>Refresh QR</button>
+	      					
 	      				</div>
       				</div>
-      				<div class="tableBox table table  table-striped" style="width: 100%;margin-left: 20px;">
-      					<h4>Recent Messages : </h4>
+      				<div class="tableBox table table  table-striped" id="msgLog" style="width: 100%;margin-left: 20px;display: none">
+      					<button class="btn btn-primary btn-sm m-0" id="sendMsg" disabled>Send Messages</button>
+      					<h4>Recent Messages : </h4>	
       					<input type="file" id="xlschoose" name="">
       					<table>
       						<thead>
@@ -166,6 +168,7 @@
 </html>
 
 <script type="text/javascript">
+	var isLoggedIn = false, isLI;
 	window.onload = function(){
 		$("#xlschoose").on('change', function(e){
 			console.log(e.target.files[0])
@@ -203,6 +206,7 @@
 						setTimeout(function(){
 							$(".progress").css('visibility','hidden');
 							$(".progress-bar").toggleClass('bg-primary bg-success');
+							isLI = setInterval(checkIsLoggedIn,3000)
 						},2000)
 					}else if(status == "error"){
 						$.notify(jqXHR.responseJSON.msg,'error')
@@ -249,6 +253,59 @@
 			})
 		}
 
+		function checkIsLoggedIn(){
+			if(!isLoggedIn){
+				$.ajax({
+					url : 'http://localhost:5000/isLoggedIn',
+					async : true,
+					dataType : 'json',
+					complete : function(jqXHR, status){
+						if(status == "success"){
+							isLoggedIn = true;
+							$("#sendMsg").prop('disabled',false);
+							$("#msgLog").show();
+							$(".qrCodeBox").hide();
+							if(jqXHR.responseJSON.data == '')
+								$.notify(jqXHR.responseJSON.msg,'success')
+							
+						}else if(status == "error"){
+							
+							// if(jqXHR.responseJSON.data != "")
+							// $.notify(`${jqXHR.responseJSON.msg} : ${jqXHR.responseJSON.data}`,'error')
+							// else 
+							// 	$.notify(`${jqXHR.responseJSON.msg}`,'error')
+							
+						}
+					}
+				})
+			}else{
+				clearInterval(isLI);	
+			}
+		}
+
+		$("#sendMsg").on('click',sendMessage)
+		function sendMessage(){
+			$.ajax({
+				url : 'http://localhost:5000/sendMsg',
+				async : true,
+				dataType : 'json',
+				complete : function(jqXHR, status){
+					if(status == "success"){
+						isLoggedIn = true;
+						$("#sendMsg").prop('disabled',false);
+						$("#msgLog").show();
+						$(".qrCodeBox").hide();
+						if(jqXHR.responseJSON.data == '')
+							$.notify(jqXHR.responseJSON.msg,'success')
+						
+					}else if(status == "error"){
+						
+					}
+				
+				}
+
+			})
+		}
 	}
 </script>
 

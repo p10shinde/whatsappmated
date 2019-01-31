@@ -9,11 +9,13 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.common.exceptions import NoSuchElementException
 
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import firestore
 import configparser
+import openpyxl 
 config = configparser.ConfigParser()
 config.read('config.ini')
 config.sections()
@@ -116,11 +118,137 @@ def scanQR():
 @app.route('/isLoggedIn')
 def isLoggedIn():
 	try:
+		# contact list locator
 		driver.find_element_by_css_selector(".RLfQR")
-		return 'true'
+		return jsonify({'msg':'Logged In...','data':''}), 200
+	except NoSuchElementException:
+		return jsonify({'msg':'Exception','data':''}), 404
 	except Exception as e:
-		return 'false'
+		return jsonify({'msg':'Exception','data':str(e)}), 404
 
+@app.route('/sendMsg')
+def sendMsg():
+	get_data_from_excel()
+
+
+
+def get_data_from_excel():
+	wb_obj = openpyxl.load_workbook("./input/data.xlsx")
+	sheet_obj = wb_obj.active
+	max_row = sheet_obj.max_row
+	max_col = sheet_obj.max_column
+	number_data = []
+	for i in range(2, max_row+1):
+		ob = {}
+		for col in range(1, max_col+1):
+			ob[sheet_obj.cell(row = 1, column = col).value] = sheet_obj.cell(row = i, column = col).value
+		number_data.append(ob);
+	
+	process_numbers(number_data)
+
+def process_numbers(number_data):
+	for user_record in number_data:
+		if check_contact_availability(user_record) == True:
+			select_contact()
+			print(user_record)
+			send_message(user_record)
+			# check_sent_message_status()
+		else:
+			print(user_record)
+			print("{}{}".format(user_record['number'], ' not available in your contacts'))
+			send_message_to_unknown_contact(user_record)
+	# logout()
+
+def search_user_by_number(number):
+	#input box to search within contacts
+	print('searching ')
+	print(number)
+	name_search_input = driver.find_element_by_css_selector(".jN-F5.copyable-text.selectable-text")
+	name_search_input.click()
+	name_search_input.clear()
+	name_search_input.send_keys(number)
+	time.sleep(2)
+	#after entering search number check if number found or not
+	try:
+		found_users_list = WebDriverWait(driver, 2).until(
+        expected_conditions.presence_of_element_located((By.CSS_SELECTOR,"._2wP_Y ._2EXPL")))
+		print('Contact found by numbber')
+		return True
+	except Exception as e:
+		print(e)
+		print("User not found in contacts");
+		print("Will try to search with name...");
+		return False;
+
+def search_user_by_name(name):
+	#input box to search within contacts
+	num_search_input = driver.find_element_by_css_selector(".jN-F5.copyable-text.selectable-text")
+	num_search_input.click()
+	num_search_input.clear()
+	num_search_input.send_keys(name)
+	time.sleep(2)
+	#after entering search number check if number found or not
+	try:
+		found_users_list = WebDriverWait(driver, 2).until(expected_conditions.presence_of_element_located((By.CSS_SELECTOR,"._2wP_Y ._2EXPL")))
+		print('Contact found by name')
+		return True
+	except Exception as e:
+		print(e)
+		print("User not found in contacts");
+		# print("Will try to search with name...");
+		return False;
+def send_message_to_unknown_contact(user_record):
+	if user_record['type'] == 'text':
+		url = "https://wa.me/91{}?text={}".format(user_record['number'],user_record['message'].replace("{#name#}",'User'))
+		print(url)
+		driver.get(url)
+		# send button
+		driver.find_element_by_css_selector("#action-button").click()
+		# driver.find_element_by_css_selector("span[data-icon='send']").click();
+	else:
+		print('Cant not send images to unknown number')
+
+def check_contact_availability(user_record):
+	WebDriverWait(driver, 2).until(expected_conditions.visibility_of_element_located((By.CSS_SELECTOR,".jN-F5.copyable-text.selectable-text")))
+	if search_user_by_number(user_record['number']) == False:
+		if user_record['name'] != '__BLANK__':
+			if search_user_by_name(user_record['name']) == False:
+				print(user_record['number'] + ' not available in your contacts.')
+				return False
+			else:
+				return True
+		else:
+			return False
+	else:
+		return True
+
+def select_contact():
+	driver.find_element_by_css_selector("._2EXPL:not(._34xP_)").click()
+
+def send_message(number_data):
+	if number_data['type'] == 'text':
+		#click on message input box
+		driver.find_element_by_css_selector("#main > footer > div._3pkkz.copyable-area > div._1Plpp").click()
+		#enter the message provided
+		message_input = driver.find_element_by_css_selector("#main > footer > div._3pkkz.copyable-area > div._1Plpp")
+		actions = ActionChains(driver)
+		actions.move_to_element(message_input)
+		actions.click(message_input)
+		# get name of user
+		users_display_name = driver.find_element_by_css_selector("#main > header > div._1WBXd > div > div > span").text
+		actions.send_keys(number_data['message'].replace("{#name#}",users_display_name))
+		actions.perform()
+		#click send button
+		driver.find_element_by_css_selector("._35EW6").click()
+	elif number_data['type'] == 'image':
+		# click attach button
+		driver.find_element_by_css_selector("div[title='Attach']").click();
+		# make element to be visible
+		driver.execute_script("document.querySelectorAll('input[type=\"file\"]')[0].style.display = 'block'")
+		driver.find_elements_by_css_selector("input[type='file']")[0].send_keys(os.path.realpath('./images/'+number_data['message']))
+		
+		# click send button 
+		driver.find_element_by_css_selector("span[data-icon='send-light']").click();
 
 @app.route("/")
 def apiRunning():
